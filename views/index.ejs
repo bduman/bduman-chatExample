@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= title %></title>
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+  </head>
+  <body>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-md-5">
+                <div class="panel panel-primary">
+                    <div class="panel-heading" id="accordion">
+                        <span class="glyphicon glyphicon-comment"></span> Sohbet (<span id="count"></span>)
+                         
+                    </div>
+                    <div class="panel-body chat" id="messages"></div>
+                    <div class="panel-footer">
+                    <div id="typing"></div>
+                        <form id="chat">
+                            <div class="input-group">
+                                <input type="text" id="m" class="form-control input-sm" autocomplete="off" placeholder="Buraya yazabilirsin..." />
+                                <span class="input-group-btn">
+                                    <button type="submit" class="btn btn-warning btn-sm" id="btn-chat">Gönder</button>
+                                </span>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <div class="panel panel-danger">
+                    <div class="panel-heading" id="accordion">
+                        <span class="glyphicon glyphicon-facetime-video"></span> Youtube
+                        
+                    </div>
+                    <div class="panel-body" id="youtube" style="overflow-y: hidden;padding: 0px;"></div>
+                </div>
+                
+                <div class="panel panel-success">
+                    <div class="panel-heading" id="accordion">
+                        <span class="glyphicon glyphicon-user"></span> Kullanıcı adı <input type="text" id="username" value="" /> <button onClick="changeUsername();return false;">Değiştir</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <audio id="notification" src="/notification.mp3"></audio>
+
+    <script src="//code.jquery.com/jquery-1.11.1.js"></script>
+    <script src="//cdn.socket.io/socket.io-1.4.5.js"></script>
+    <script>
+        var socket = io.connect();
+        var messages = $('#messages');
+        var message = $('#m');
+        var youtube = $('#youtube');
+        var typing = $('#typing');
+        var count = $('#count');
+        
+        function changeUsername() {
+            socket.emit('username', $("#username").val());
+            setCookie("username", $("#username").val());
+        }
+        
+        if(readCookie("username") === undefined || readCookie("username") === null) {
+            $("#username").val("Anon-" + Math.floor(Math.random() * (9999 - 1000 + 1)) + 1000);
+            changeUsername();
+        } else {
+            $("#username").val(readCookie("username"));
+            changeUsername();
+        }
+        
+        var focused = true;
+
+        window.onfocus = window.onblur = function(e) {
+            focused = (e || event).type === "focus";
+        }       
+
+        function messagingFunc() {
+            if (focused === false) {
+                document.getElementById('notification').play();
+            }
+        }
+
+        function pullScroll() {
+            messages.animate({
+                scrollTop: messages.get(0).scrollHeight
+            }, 0);
+        }
+        
+        $('#chat').submit(function() {
+            
+            if(message.val().length > 0) {
+
+                socket.emit('message', message.val());
+                messages.append($('<li class="me">').text(message.val()));
+                pullScroll();
+                message.val('');
+            }
+            return false;
+        });
+        
+        message.keypress(function() {
+            socket.emit('typing', true);
+        });
+        
+        message.keyup(function() {
+            socket.emit('typing', false);
+        });
+  
+        socket.on('message', function(msg) {
+            messages.append($('<li>').text(msg));
+            pullScroll();
+            messagingFunc();
+        });
+                
+        socket.on('count', function(data) {
+            
+            var array = [];
+            
+            $.each(data, function(key, value) {
+                array.push(value);
+            });
+
+           count.html(array.length + ' kişi sohbet ediyor. ' + array.join());
+        });
+        
+        socket.on('typing', function(typer) {
+            typing.html(typer);
+        });
+        
+        socket.on('info', function(msg) {
+            messages.append($('<li class="info">').text(msg));
+            pullScroll();
+        });
+        
+        socket.on('youtube', function(code) {
+            
+            youtube.html('<iframe width="455" height="250" src="https://www.youtube-nocookie.com/embed/' + code + '?rel=0&amp;autoplay=1&amp;controls=0&amp;showinfo=0" frameborder="0" allowfullscreen></iframe>');
+            
+        });
+        
+        function readCookie(name) {
+            var nameEQ = name + "=";
+            var ca = document.cookie.split(';');
+            for(var i=0;i < ca.length;i++) {
+                var c = ca[i];
+                while (c.charAt(0)==' ') c = c.substring(1,c.length);
+                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+            }
+            return null;
+        }
+        
+        function setCookie(field,value) {
+            document.cookie = field + "=" + value + ";";
+        }
+        
+    </script>
+  </body>
+</html>
